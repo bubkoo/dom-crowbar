@@ -1,0 +1,22 @@
+node_modules/
+dist/
+.vite/
+
+.DS_Store
+
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+coverage/
+
+*.tsbuildinfo
+
+.idea/
+.vscode/
+.claude/
+
+# Generated from public/assets/icon.svg during build
+public/assets/*.png

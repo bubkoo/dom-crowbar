@@ -1,0 +1,35 @@
+{
+  "name": "dom-crowbar",
+  "version": "1.0.0",
+  "description": "DOM node screenshot extension for Chrome",
+  "type": "module",
+  "scripts": {
+    "predev": "npm run build:icons",
+    "dev": "vite",
+    "prebuild": "npm run build:icons",
+    "build": "tsc && vite build",
+    "prewatch": "npm run build:icons",
+    "watch": "vite build --watch",
+    "build:icons": "node scripts/build-icons.mjs",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.0.0-beta.25",
+    "@resvg/resvg-js": "^2.6.2",
+    "@types/chrome": "^0.0.268",
+    "@types/node": "^25.6.0",
+    "@vitest/coverage-v8": "^4.1.5",
+    "happy-dom": "^20.9.0",
+    "typescript": "^5.4.5",
+    "vite": "^5.4.0",
+    "vitest": "^4.1.5"
+  },
+  "author": "bubkoo",
+  "license": "MIT",
+  "dependencies": {
+    "lit-html": "^3.3.2"
+  }
+}
