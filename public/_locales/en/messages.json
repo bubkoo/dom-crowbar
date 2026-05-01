@@ -1,0 +1,21 @@
+{
+  "extensionName": { "message": "dom-crowbar" },
+  "extensionDescription": { "message": "DOM node screenshot extension for Chrome" },
+  "actionTitle": { "message": "DOM Crowbar" },
+
+  "overlayHelpTitle": { "message": "Keyboard Shortcuts" },
+  "overlayHelpHint": { "message": "Hold ? to open this panel" },
+  "overlayHelpGroupNavigate": { "message": "Element Navigation" },
+  "overlayHelpGroupAdjust": { "message": "Bounds Adjustment" },
+  "overlayHelpGroupAction": { "message": "Capture Actions" },
+  "overlayHelpSelectParent": { "message": "Select parent" },
+  "overlayHelpSelectChild": { "message": "Select child" },
+  "overlayHelpExpandTop": { "message": "Expand top" },
+  "overlayHelpExpandBottom": { "message": "Expand bottom" },
+  "overlayHelpExpandLeft": { "message": "Expand left" },
+  "overlayHelpExpandRight": { "message": "Expand right" },
+  "overlayHelpExpandAll": { "message": "Expand all" },
+  "overlayHelpShrinkAll": { "message": "Shrink all" },
+  "overlayHelpConfirmCapture": { "message": "Capture" },
+  "overlayHelpCancel": { "message": "Cancel" }
+}
