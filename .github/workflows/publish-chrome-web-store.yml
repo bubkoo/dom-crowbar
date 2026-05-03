@@ -1,0 +1,130 @@
+name: Publish Chrome Extension
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_target:
+        description: "Chrome Web Store publish target (default or trustedTesters)"
+        required: true
+        default: default
+        type: choice
+        options:
+          - default
+          - trustedTesters
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+      CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+      CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+      CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Validate required secrets
+        run: |
+          test -n "$CHROME_EXTENSION_ID" || (echo "Missing secret: CHROME_EXTENSION_ID" && exit 1)
+          test -n "$CWS_CLIENT_ID" || (echo "Missing secret: CWS_CLIENT_ID" && exit 1)
+          test -n "$CWS_CLIENT_SECRET" || (echo "Missing secret: CWS_CLIENT_SECRET" && exit 1)
+          test -n "$CWS_REFRESH_TOKEN" || (echo "Missing secret: CWS_REFRESH_TOKEN" && exit 1)
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build extension
+        run: npm run build
+
+      - name: Pack extension zip
+        run: |
+          cd dist
+          zip -r ../extension.zip .
+
+      - name: Upload packaged artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-zip
+          path: extension.zip
+          if-no-files-found: error
+
+      - name: Resolve publish target
+        id: target
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ github.event.inputs.publish_target }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=default" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Request OAuth access token
+        id: token
+        run: |
+          RESPONSE=$(curl -sS --fail -X POST "https://oauth2.googleapis.com/token" \
+            -d "client_id=$CWS_CLIENT_ID" \
+            -d "client_secret=$CWS_CLIENT_SECRET" \
+            -d "refresh_token=$CWS_REFRESH_TOKEN" \
+            -d "grant_type=refresh_token")
+
+          ACCESS_TOKEN=$(node -e "const r = JSON.parse(process.argv[1]); if(!r.access_token){process.exit(1)}; process.stdout.write(r.access_token);" "$RESPONSE")
+          echo "token=$ACCESS_TOKEN" >> "$GITHUB_OUTPUT"
+
+      - name: Upload to Chrome Web Store
+        id: upload
+        run: |
+          RESPONSE=$(curl -sS --fail -X PUT \
+            -H "Authorization: Bearer ${{ steps.token.outputs.token }}" \
+            -H "x-goog-api-version: 2" \
+            -H "Content-Type: application/zip" \
+            --data-binary @extension.zip \
+            "https://www.googleapis.com/upload/chromewebstore/v1.1/items/$CHROME_EXTENSION_ID")
+
+          echo "$RESPONSE" > upload-response.json
+
+          node <<'NODE'
+          const fs = require('node:fs');
+          const response = JSON.parse(fs.readFileSync('upload-response.json', 'utf8'));
+          if (response.uploadState !== 'SUCCESS') {
+            console.error('Upload failed:', response);
+            process.exit(1);
+          }
+          console.log('Upload succeeded for extension:', response.item_id || response.id || 'unknown');
+          NODE
+
+      - name: Publish in Chrome Web Store
+        run: |
+          TARGET="${{ steps.target.outputs.value }}"
+          RESPONSE=$(curl -sS --fail -X POST \
+            -H "Authorization: Bearer ${{ steps.token.outputs.token }}" \
+            -H "x-goog-api-version: 2" \
+            "https://www.googleapis.com/chromewebstore/v1.1/items/$CHROME_EXTENSION_ID/publish?publishTarget=$TARGET")
+
+          echo "$RESPONSE" > publish-response.json
+
+          node <<'NODE'
+          const fs = require('node:fs');
+          const response = JSON.parse(fs.readFileSync('publish-response.json', 'utf8'));
+          const status = Array.isArray(response.status) ? response.status : [];
+          if (!status.includes('OK')) {
+            console.error('Publish failed:', response);
+            process.exit(1);
+          }
+          console.log('Publish succeeded with status:', status.join(','));
+          NODE
