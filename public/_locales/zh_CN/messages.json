@@ -1,6 +1,6 @@
 {
   "extensionName": { "message": "dom-crowbar" },
-  "extensionDescription": { "message": "基于 Chrome DevTools 的 DOM 节点截图扩展" },
+  "extensionDescription": { "message": "精确的 DOM 元素截图扩展" },
   "actionTitle": { "message": "DOM Crowbar" },
 
   "overlayHelpTitle": { "message": "快捷键" },
