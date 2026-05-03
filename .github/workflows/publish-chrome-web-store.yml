@@ -1,4 +1,4 @@
-name: Publish Chrome Extension
+name: 🚀　Publish Chrome Extension
 
 on:
   workflow_dispatch:
@@ -45,7 +45,7 @@ jobs:
           test -n "$CWS_REFRESH_TOKEN" || (echo "Missing secret: CWS_REFRESH_TOKEN" && exit 1)
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Run tests
         run: npm test
