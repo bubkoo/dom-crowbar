@@ -211,6 +211,19 @@ npm test
 
 ---
 
+## CI/CD and Chrome Web Store Publishing
+
+Release and publish documentation has been moved to:
+
+- [docs/release-and-publishing.md](docs/release-and-publishing.md)
+
+Workflow files:
+
+- [.github/workflows/ci.yml](.github/workflows/ci.yml)
+- [.github/workflows/publish-chrome-web-store.yml](.github/workflows/publish-chrome-web-store.yml)
+
+---
+
 ## License
 
 MIT
