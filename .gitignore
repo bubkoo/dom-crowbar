@@ -18,5 +18,7 @@ coverage/
 .vscode/
 .claude/
 
+dist.zip
+
 # Generated from public/assets/icon.svg during build
 public/assets/*.png
