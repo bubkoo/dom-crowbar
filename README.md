@@ -89,29 +89,29 @@ The extension uses `chrome.tabs.captureVisibleTab` API to capture screenshots at
 ## Architecture
 
 ```text
-┌─────────────────────────────────────────────────────────────────────┐
-│                              Browser                                │
-│                                                                     │
-│  ┌────────────────────────┐     ┌────────────────────────────────┐  │
-│  │   Action (Click Icon)  │ ──▶ │   Background SW               │  │
-│  └────────────────────────┘     │   background.ts               │  │
-│                                 │   capture.ts                  │  │
-│  ┌────────────────────────┐     │  - ENTER_PICK_MODE            │  │
-│  │   Content Script       │ ◀──▶│  - CAPTURE_SUCCESS / ERROR    │  │
-│  │   content.ts           │     │  - captureVisibleTab          │  │
-│  │   node-overlay.ts      │     │  - scroll/tiled strategy      │  │
-│  │   screenshot-result.ts │     └───────────────┬────────────────┘  │
-│  └────────────────────────┘                     │                   │
-│           │                                      │ CROP/STITCH      │
-│           │ NODE_SELECTED                        │ COPY_TO_CLIPBOARD│
-│           ▼                                      ▼ DOWNLOAD_IMAGE   │
-│                                 ┌────────────────────────────────┐  │
-│                                 │   Offscreen Document           │  │
-│                                 │   src/offscreen/index.ts       │  │
-│                                 │  - Canvas crop/stitch          │  │
-│                                 │  - Clipboard API               │  │
-│                                 └────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                              Browser                                 │
+│                                                                      │
+│  ┌────────────────────────┐      ┌───────────────────────────────┐   │
+│  │   Action (Click Icon)  │ ──▶  │   Background SW               │   │
+│  └────────────────────────┘      │   background.ts               │   │
+│                                  │   capture.ts                  │   │
+│  ┌────────────────────────┐      │  - ENTER_PICK_MODE            │   │
+│  │   Content Script       │ ◀──▶ │  - CAPTURE_SUCCESS / ERROR    │   │
+│  │   content.ts           │      │  - captureVisibleTab          │   │
+│  │   overlay.ts           │      │  - scroll/tiled strategy      │   │
+│  │   screenshot-result.ts │      │  - download (downloads API)   │   │
+│  └────────────────────────┘      └───────────────┬───────────────┘   │
+│           │                                      │ CROP/STITCH       │
+│           │ NODE_SELECTED                        │ COPY_TO_CLIPBOARD │
+│           ▼                                      ▼                   │
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │                      Offscreen Document                        │  │
+│  │                      src/offscreen/index.ts                    │  │
+│  │                      - Canvas crop/stitch                      │  │
+│  │                      - Clipboard API                           │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -124,7 +124,7 @@ src/
 │   └── background.ts         # Service Worker entry point
 ├── content/
 │   ├── content.ts            # Content Script entry point
-│   ├── node-overlay.ts       # Node highlight and selection overlay
+│   ├── overlay.ts            # Node highlight and selection overlay
 │   └── selector-builder.ts   # CSS selector generator
 ├── offscreen/
 │   ├── index.html            # Offscreen document HTML
