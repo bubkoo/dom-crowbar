@@ -1,4 +1,4 @@
-name: 🚀　Publish Chrome Extension
+name: Publish Chrome Extension
 
 on:
   workflow_dispatch:
