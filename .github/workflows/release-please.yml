@@ -1,0 +1,27 @@
+name: Release Please
+
+on:
+  push:
+    branches:
+      - master
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate Token
+        uses: wow-actions/use-app-token@v2
+        with:
+          app_id: ${{ secrets.APP_ID }}
+          private_key: ${{ secrets.PRIVATE_KEY }}
+      - name: Run release-please
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ env.BOT_TOKEN }}
+          config-file: config/release-please-config.json
+          manifest-file: config/release-please-manifest.json
