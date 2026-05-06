@@ -1,5 +1,5 @@
 {
-  "extensionName": { "message": "dom-crowbar" },
+  "extensionName": { "message": "DOM Crowbar" },
   "extensionDescription": { "message": "DOM node screenshot extension for Chrome" },
   "actionTitle": { "message": "DOM Crowbar" },
 

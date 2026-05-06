@@ -1,5 +1,5 @@
 {
-  "extensionName": { "message": "dom-crowbar" },
+  "extensionName": { "message": "DOM Crowbar" },
   "extensionDescription": { "message": "精确的 DOM 元素截图扩展" },
   "actionTitle": { "message": "DOM Crowbar" },
 
