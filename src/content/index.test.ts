@@ -154,10 +154,6 @@ describe('screenshotResult', () => {
         return Promise.resolve({ success: true });
       }
 
-      if (message.action === 'DOWNLOAD_IMAGE') {
-        return Promise.resolve({ success: true });
-      }
-
       return Promise.resolve(undefined);
     });
     (globalThis as unknown as { chrome: unknown }).chrome = {
@@ -167,26 +163,91 @@ describe('screenshotResult', () => {
     await screenshotResult.handleSuccess(dataUrl, 100, 50, '#my-element');
 
     expect(sendMessage).toHaveBeenCalledWith({ action: 'COPY_TO_CLIPBOARD', dataUrl });
-    expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({
-      action: 'DOWNLOAD_IMAGE',
-      dataUrl,
-      filename: expect.stringMatching(/dom-crowbar-\d{8}T\d{6}\.png$/),
-    }));
+    expect(sendMessage).not.toHaveBeenCalledWith(expect.objectContaining({ action: 'DOWNLOAD_IMAGE' }));
   });
 
   it('should not throw if clipboard copy fails', async () => {
     const sendMessage = vi.fn()
-      .mockRejectedValueOnce(new Error('clipboard error'))
-      .mockResolvedValueOnce({ success: true });
+      .mockRejectedValueOnce(new Error('clipboard error'));
     (globalThis as unknown as { chrome: unknown }).chrome = {
       runtime: { sendMessage },
     };
 
     await expect(screenshotResult.handleSuccess(dataUrl, 100, 50, '.my-class')).resolves.toBeUndefined();
+    expect(sendMessage).not.toHaveBeenCalledWith(expect.objectContaining({ action: 'DOWNLOAD_IMAGE' }));
+  });
+
+  it('should fallback to background download when anchor click throws', async () => {
+    const sendMessage = vi.fn().mockImplementation((message: { action: string }) => {
+      if (message.action === 'COPY_TO_CLIPBOARD') {
+        return Promise.resolve({ success: true });
+      }
+
+      if (message.action === 'DOWNLOAD_IMAGE') {
+        return Promise.resolve({ success: true });
+      }
+
+      return Promise.resolve(undefined);
+    });
+
+    const originalCreateElement = document.createElement.bind(document);
+    const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName: string) => {
+      const element = originalCreateElement(tagName);
+      if (tagName.toLowerCase() === 'a') {
+        (element as HTMLAnchorElement).click = vi.fn(() => {
+          throw new Error('anchor blocked');
+        });
+      }
+      return element;
+    });
+
+    (globalThis as unknown as { chrome: unknown }).chrome = {
+      runtime: { sendMessage },
+    };
+
+    await expect(screenshotResult.handleSuccess(dataUrl, 100, 50, '#fallback')).resolves.toBeUndefined();
+
     expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({
       action: 'DOWNLOAD_IMAGE',
       dataUrl,
       filename: expect.stringMatching(/dom-crowbar-\d{8}T\d{6}\.png$/),
     }));
+
+    createElementSpy.mockRestore();
+  });
+
+  it('should show error when anchor and background download both fail', async () => {
+    const sendMessage = vi.fn().mockImplementation((message: { action: string }) => {
+      if (message.action === 'COPY_TO_CLIPBOARD') {
+        return Promise.resolve({ success: false, error: 'copy failed' });
+      }
+
+      if (message.action === 'DOWNLOAD_IMAGE') {
+        return Promise.resolve({ success: false, error: 'background failed' });
+      }
+
+      return Promise.resolve(undefined);
+    });
+
+    const originalCreateElement = document.createElement.bind(document);
+    const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName: string) => {
+      const element = originalCreateElement(tagName);
+      if (tagName.toLowerCase() === 'a') {
+        (element as HTMLAnchorElement).click = vi.fn(() => {
+          throw new Error('anchor blocked');
+        });
+      }
+      return element;
+    });
+
+    (globalThis as unknown as { chrome: unknown }).chrome = {
+      runtime: { sendMessage },
+    };
+
+    await expect(screenshotResult.handleSuccess(dataUrl, 100, 50, '#all-fail')).resolves.toBeUndefined();
+
+    expect(document.querySelector('#dom-crowbar-toast')?.textContent).toContain('Screenshot captured, but copy and download both failed.');
+
+    createElementSpy.mockRestore();
   });
 });
