@@ -16,7 +16,7 @@ on:
       - "v*"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   publish:
@@ -58,11 +58,23 @@ jobs:
           cd dist
           zip -r ../extension.zip .
 
+      - name: Pack dist zip
+        run: |
+          cd dist
+          zip -r ../dist.zip .
+
       - name: Upload packaged artifact
         uses: actions/upload-artifact@v4
         with:
           name: extension-zip
           path: extension.zip
+          if-no-files-found: error
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-zip
+          path: dist.zip
           if-no-files-found: error
 
       - name: Resolve publish target
@@ -128,3 +140,43 @@ jobs:
           }
           console.log('Publish succeeded with status:', status.join(','));
           NODE
+
+      - name: Build release notes
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          EXTENSION_LINK="https://chromewebstore.google.com/detail/$CHROME_EXTENSION_ID"
+          cat > release-notes.md <<EOF
+          ## DOM Crowbar ${TAG_NAME}
+
+          ### What was published
+
+          - Chrome Extension package uploaded to Chrome Web Store
+          - Publish target: ${{ steps.target.outputs.value }}
+          - Build artifacts attached to this release:
+            - extension.zip
+            - dist.zip
+
+          ### Chrome Web Store
+
+          - Extension ID: \`$CHROME_EXTENSION_ID\`
+          - Store page: $EXTENSION_LINK
+
+          ### CI metadata
+
+          - Commit: ${{ github.sha }}
+          - Workflow run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EOF
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: DOM Crowbar ${{ github.ref_name }}
+          body_path: release-notes.md
+          files: |
+            extension.zip
+            dist.zip
+          generate_release_notes: true
