@@ -217,10 +217,33 @@ class ScreenshotResult {
   /**
    * Download image to disk
    *
-   * Tries background script first, falls back to direct download link
-   * if that fails (e.g., if background handler is not available).
+    * Prioritizes direct anchor download with filename and falls back to background.
+    *
+    * Why anchor-first:
+    * - Some download-manager extensions hook into chrome.downloads APIs and may rewrite
+    *   filenames, while the anchor path better preserves the requested business filename.
+    * - The anchor path is a lightweight page-context operation and avoids extra message
+    *   hops to the service worker when it succeeds.
+    *
+    * Why keep background fallback:
+    * - The anchor path can fail on certain pages/policies, so background download remains
+    *   a compatibility fallback to keep the save operation resilient.
    */
   private async download(dataUrl: string, filename: string): Promise<boolean> {
+    try {
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = filename;
+      link.setAttribute('download', filename);
+      link.rel = 'noopener';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      return true;
+    } catch (error) {
+      log.warn('anchor download failed, trying background', { error });
+    }
+
     try {
       const response = await chrome.runtime.sendMessage({
         action: 'DOWNLOAD_IMAGE',
@@ -237,26 +260,8 @@ class ScreenshotResult {
       log.debug('downloaded', { filename });
       return true;
     } catch (error) {
-      try {
-        const response = await fetch(dataUrl);
-        const blob = await response.blob();
-        const objectUrl = URL.createObjectURL(blob);
-
-        const link = document.createElement('a');
-        link.href = objectUrl;
-        link.download = filename;
-        link.setAttribute('download', filename);
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-
-        URL.revokeObjectURL(objectUrl);
-        log.debug('downloaded via fallback', { filename });
-        return true;
-      } catch (fallbackError) {
-        log.error('download failed', fallbackError);
-        return false;
-      }
+      log.error('download failed', error);
+      return false;
     }
   }
 }

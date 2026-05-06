@@ -21,6 +21,13 @@ type ElementViewportInfo = {
   offsetY: number;
 };
 
+type RectExpansion = {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+};
+
 /**
  * Main entry point for handling node selection and screenshot capture
  *
@@ -53,6 +60,10 @@ export async function handleNodeSelected(
     // Store original scroll position for restoration after capture
     const originalScrollX = viewport.scrollX;
     const originalScrollY = viewport.scrollY;
+
+    // Compute how much the user expanded/shrank around the selected node.
+    // This keeps +/- adjustments effective across scroll/tiled capture paths.
+    const expansion = await getRectExpansion(tabId, selector, rect);
 
     // Determine capture strategy.
     //
@@ -105,6 +116,7 @@ export async function handleNodeSelected(
           selector,
           tab.windowId,
           rect,
+          expansion,
           dpr,
           viewport,
           originalScrollX,
@@ -119,6 +131,7 @@ export async function handleNodeSelected(
           selector,
           tab.windowId,
           rect,
+          expansion,
           dpr,
           viewport,
           originalScrollX,
@@ -242,6 +255,7 @@ async function captureWithScroll(
   selector: string,
   windowId: number,
   rect: DOMRectJson,
+  expansion: RectExpansion,
   dpr: number,
   viewport: ViewportInfo,
   originalScrollX: number,
@@ -280,6 +294,7 @@ async function captureWithScroll(
     selector,
     scrollContainer,
     rect,
+    expansion,
     targetScrollX,
     targetScrollY
   );
@@ -381,6 +396,7 @@ async function captureTiledScreenshot(
   selector: string,
   windowId: number,
   rect: DOMRectJson,
+  expansion: RectExpansion,
   dpr: number,
   viewport: ViewportInfo,
   originalScrollX: number,
@@ -447,6 +463,7 @@ async function captureTiledScreenshot(
           selector,
           scrollContainer,
           rect,
+          expansion,
           scrollX,
           scrollY
         );
@@ -494,19 +511,27 @@ async function getElementRectAfterScroll(
   tabId: number,
   elementSelector: string,
   scrollContainer: ScrollContainerInfo | undefined,
-  originalRect: DOMRectJson,
+  selectedRect: DOMRectJson,
+  expansion: RectExpansion,
   _targetScrollX: number,
   _targetScrollY: number
 ): Promise<ElementViewportInfo> {
   const result = await chrome.scripting.executeScript({
     target: { tabId },
-    func: (selector: string, containerSelector: string | null) => {
+    func: (selector: string, containerSelector: string | null, expand: RectExpansion) => {
       const element = document.querySelector(selector);
       if (!element) {
         return null;
       }
 
       const elementRect = element.getBoundingClientRect();
+      // Rebuild the user-intended capture box by expanding around the live element rect.
+      // This keeps +/- adjustments effective even after scrolling changes viewport position.
+      const expandedLeft = elementRect.left - expand.left;
+      const expandedTop = elementRect.top - expand.top;
+      const expandedRight = elementRect.right + expand.right;
+      const expandedBottom = elementRect.bottom + expand.bottom;
+
       const container = containerSelector ? document.querySelector(containerSelector) : null;
 
       const viewportLeft = 0;
@@ -527,10 +552,10 @@ async function getElementRectAfterScroll(
         clipBottom = Math.min(clipBottom, containerRect.bottom);
       }
 
-      const visibleLeft = Math.max(clipLeft, elementRect.left);
-      const visibleTop = Math.max(clipTop, elementRect.top);
-      const visibleRight = Math.min(clipRight, elementRect.right);
-      const visibleBottom = Math.min(clipBottom, elementRect.bottom);
+      const visibleLeft = Math.max(clipLeft, expandedLeft);
+      const visibleTop = Math.max(clipTop, expandedTop);
+      const visibleRight = Math.min(clipRight, expandedRight);
+      const visibleBottom = Math.min(clipBottom, expandedBottom);
 
       const width = Math.max(0, visibleRight - visibleLeft);
       const height = Math.max(0, visibleBottom - visibleTop);
@@ -549,13 +574,14 @@ async function getElementRectAfterScroll(
           right: visibleRight,
           bottom: visibleBottom,
         },
-        offsetX: visibleLeft - elementRect.left,
-        offsetY: visibleTop - elementRect.top,
+        offsetX: visibleLeft - expandedLeft,
+        offsetY: visibleTop - expandedTop,
       };
     },
     args: [
       elementSelector,
       scrollContainer?.hasScrollableContainer ? (scrollContainer.containerSelector ?? null) : null,
+      expansion,
     ],
   });
 
@@ -569,6 +595,46 @@ async function getElementRectAfterScroll(
   // - May produce imperfect stitching for highly dynamic pages; callers should treat frequent hits
   //   on this branch as a signal that selector stability needs improvement.
   log.warn('element not found after scroll, using original rect');
-  return { rect: originalRect, offsetX: 0, offsetY: 0 };
+  return { rect: selectedRect, offsetX: 0, offsetY: 0 };
+}
+
+async function getRectExpansion(
+  tabId: number,
+  selector: string,
+  selectedRect: DOMRectJson
+): Promise<RectExpansion> {
+  const result = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: (nodeSelector: string) => {
+      const element = document.querySelector(nodeSelector);
+      if (!element) {
+        return null;
+      }
+      const rect = element.getBoundingClientRect();
+      return {
+        top: rect.top,
+        right: rect.right,
+        bottom: rect.bottom,
+        left: rect.left,
+      };
+    },
+    args: [selector],
+  });
+
+  const elementRect = result[0]?.result;
+  if (!elementRect) {
+    // If the node cannot be re-queried (rare reflow/race), treat as no expansion.
+    // Downstream still has selectedRect as fallback.
+    return { top: 0, right: 0, bottom: 0, left: 0 };
+  }
+
+  // Expansion is measured as selected-box minus live element box on each side.
+  // Positive numbers mean the user expanded outward; negatives are clamped to 0.
+  return {
+    top: Math.max(0, Math.round(elementRect.top - selectedRect.top)),
+    right: Math.max(0, Math.round(selectedRect.right - elementRect.right)),
+    bottom: Math.max(0, Math.round(selectedRect.bottom - elementRect.bottom)),
+    left: Math.max(0, Math.round(elementRect.left - selectedRect.left)),
+  };
 }
 

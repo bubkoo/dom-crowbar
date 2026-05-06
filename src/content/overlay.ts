@@ -406,16 +406,12 @@ class NodeOverlay {
     this.overlayEl.style.width = `${rect.width}px`;
     this.overlayEl.style.height = `${rect.height}px`;
 
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    const isLargeElement = rect.width >= viewportWidth * 0.8 || rect.height >= viewportHeight * 0.8;
-
     const svgRect = this.overlayEl.querySelector('#dom-crowbar-border-rect');
     if (svgRect) {
       svgRect.setAttribute('width', String(rect.width - 2));
       svgRect.setAttribute('height', String(rect.height - 2));
-      svgRect.setAttribute('stroke-width', isLargeElement ? '4' : '2');
-      svgRect.setAttribute('stroke-dasharray', isLargeElement ? '12 6' : '6 4');
+      svgRect.setAttribute('stroke-width', '2');
+      svgRect.setAttribute('stroke-dasharray', '6 4');
     }
 
     const selector = this.getElementSelector(el);
@@ -432,6 +428,8 @@ class NodeOverlay {
     });
     this.badgeEl.style.display = 'block';
 
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
     const badgeRect = this.badgeEl.getBoundingClientRect();
     const badgePosition = calculateBadgePosition({
       rectLeft: rect.left,

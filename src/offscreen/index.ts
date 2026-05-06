@@ -25,6 +25,15 @@ const ctx = canvas.getContext('2d');
  */
 chrome.runtime.onMessage.addListener(
   (message: OffscreenMessage, _sender, sendResponse: (response: OffscreenResponse) => void) => {
+    if (
+      message.action !== 'COPY_TO_CLIPBOARD' &&
+      message.action !== 'CONVERT_FORMAT' &&
+      message.action !== 'CROP_IMAGE' &&
+      message.action !== 'STITCH_IMAGES'
+    ) {
+      return false;
+    }
+
     log.trace('message received', { action: message.action });
 
     handleMessage(message)
@@ -62,9 +71,6 @@ async function handleMessage(message: OffscreenMessage): Promise<string | undefi
     case 'STITCH_IMAGES':
       // Combine multiple tiles into a single large image
       return stitchImages(message.images, message.totalWidth, message.totalHeight, message.dpr || 1);
-
-    default:
-      throw new Error(`Unknown action: ${(message as { action: string }).action}`);
   }
 }
 
