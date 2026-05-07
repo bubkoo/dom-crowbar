@@ -14,9 +14,18 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
+      - name: Setup nodejs
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Generate Token
+        uses: wow-actions/use-app-token@v2
+        with:
+          app_id: ${{ secrets.APP_ID }}
+          private_key: ${{ secrets.PRIVATE_KEY }}
       - name: Run release-please
         uses: googleapis/release-please-action@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ env.BOT_TOKEN }}
           config-file: config/release-please-config.json
           manifest-file: config/release-please-manifest.json
