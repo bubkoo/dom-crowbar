@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/bubkoo/dom-crowbar/compare/v1.1.0...v1.1.1) (2026-05-07)
+
+
+### Bug Fixes
+
+* preserve capture expansion and stabilize download paths ([a74c772](https://github.com/bubkoo/dom-crowbar/commit/a74c772b2c1765003da3799e85e2459fedf623ef))
+
 ## [1.1.0](https://github.com/bubkoo/dom-crowbar/compare/v1.0.0...v1.1.0) (2026-05-06)
 
 
