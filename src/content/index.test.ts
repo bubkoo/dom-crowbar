@@ -125,6 +125,9 @@ describe('nodeOverlay', () => {
 
 describe('screenshotResult', () => {
   const dataUrl = 'data:image/png;base64,AAAA';
+  const flushAsync = async (): Promise<void> => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  };
   let originalChrome: unknown;
   let consoleDebugSpy: ReturnType<typeof vi.spyOn>;
   let consoleInfoSpy: ReturnType<typeof vi.spyOn>;
@@ -249,5 +252,146 @@ describe('screenshotResult', () => {
     expect(document.querySelector('#dom-crowbar-toast')?.textContent).toContain('Screenshot captured, but copy and download both failed.');
 
     createElementSpy.mockRestore();
+  });
+
+  it('should hide copy failure reason and show manual copy button when only download succeeds', async () => {
+    const sendMessage = vi.fn().mockImplementation((message: { action: string }) => {
+      if (message.action === 'COPY_TO_CLIPBOARD') {
+        return Promise.resolve({ success: false, error: 'NotAllowedError: Write permission denied' });
+      }
+
+      return Promise.resolve(undefined);
+    });
+
+    (globalThis as unknown as { chrome: unknown }).chrome = {
+      runtime: { sendMessage },
+    };
+
+    await expect(screenshotResult.handleSuccess(dataUrl, 100, 50, '#copy-failed')).resolves.toBeUndefined();
+
+    const toastText = document.querySelector('#dom-crowbar-toast')?.textContent ?? '';
+    expect(toastText).toContain('Downloaded');
+    expect(toastText).not.toContain('Copy failed:');
+    expect(document.querySelector('#dom-crowbar-copy-btn')).not.toBeNull();
+  });
+
+  it('should show manual copy button and extend toast duration when auto copy fails', async () => {
+    vi.useFakeTimers();
+
+    const sendMessage = vi.fn().mockImplementation((message: { action: string }) => {
+      if (message.action === 'COPY_TO_CLIPBOARD') {
+        return Promise.resolve({ success: false, error: 'Document is not focused' });
+      }
+      return Promise.resolve(undefined);
+    });
+
+    (globalThis as unknown as { chrome: unknown }).chrome = {
+      runtime: { sendMessage },
+    };
+
+    await expect(screenshotResult.handleSuccess(dataUrl, 100, 50, '#manual-copy')).resolves.toBeUndefined();
+
+    const toast = document.querySelector('#dom-crowbar-toast') as HTMLDivElement;
+    expect(toast).not.toBeNull();
+    expect(toast.querySelector('#dom-crowbar-copy-btn')).not.toBeNull();
+
+    vi.advanceTimersByTime(3000);
+    expect(document.querySelector('#dom-crowbar-toast')).not.toBeNull();
+
+    vi.advanceTimersByTime(3000);
+    vi.advanceTimersByTime(300);
+    expect(document.querySelector('#dom-crowbar-toast')).toBeNull();
+
+    vi.useRealTimers();
+  });
+
+  it('should copy when manual copy button is clicked via direct clipboard path', async () => {
+    const write = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { write },
+      configurable: true,
+    });
+
+    const OriginalClipboardItem = (globalThis as unknown as { ClipboardItem?: unknown }).ClipboardItem;
+    (globalThis as unknown as { ClipboardItem: unknown }).ClipboardItem = class {
+      constructor(_data: Record<string, Blob>) {}
+    };
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      blob: async () => new Blob(['x'], { type: 'image/png' }),
+    } as Response);
+
+    const sendMessage = vi.fn()
+      .mockResolvedValueOnce({ success: false, error: 'Document is not focused' });
+
+    (globalThis as unknown as { chrome: unknown }).chrome = {
+      runtime: { sendMessage },
+    };
+
+    await expect(screenshotResult.handleSuccess(dataUrl, 100, 50, '#manual-click')).resolves.toBeUndefined();
+
+    const button = document.querySelector('#dom-crowbar-copy-btn') as HTMLButtonElement | null;
+    expect(button).not.toBeNull();
+
+    button?.click();
+    await flushAsync();
+    await flushAsync();
+
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(fetchSpy).toHaveBeenCalledWith(dataUrl);
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+    expect(button?.textContent).toBe('Copied');
+
+    fetchSpy.mockRestore();
+    if (OriginalClipboardItem === undefined) {
+      delete (globalThis as unknown as { ClipboardItem?: unknown }).ClipboardItem;
+    } else {
+      (globalThis as unknown as { ClipboardItem: unknown }).ClipboardItem = OriginalClipboardItem;
+    }
+  });
+
+  it('should fallback to background copy when direct manual copy fails', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { write: vi.fn().mockRejectedValue(new Error('direct blocked')) },
+      configurable: true,
+    });
+
+    const OriginalClipboardItem = (globalThis as unknown as { ClipboardItem?: unknown }).ClipboardItem;
+    (globalThis as unknown as { ClipboardItem: unknown }).ClipboardItem = class {
+      constructor(_data: Record<string, Blob>) {}
+    };
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      blob: async () => new Blob(['x'], { type: 'image/png' }),
+    } as Response);
+
+    const sendMessage = vi.fn()
+      .mockResolvedValueOnce({ success: false, error: 'Document is not focused' })
+      .mockResolvedValueOnce({ success: true });
+
+    (globalThis as unknown as { chrome: unknown }).chrome = {
+      runtime: { sendMessage },
+    };
+
+    await expect(screenshotResult.handleSuccess(dataUrl, 100, 50, '#manual-fallback')).resolves.toBeUndefined();
+
+    const button = document.querySelector('#dom-crowbar-copy-btn') as HTMLButtonElement | null;
+    expect(button).not.toBeNull();
+
+    button?.click();
+    await flushAsync();
+    await flushAsync();
+
+    expect(fetchSpy).toHaveBeenCalledWith(dataUrl);
+    expect(sendMessage).toHaveBeenCalledTimes(2);
+    expect(sendMessage).toHaveBeenNthCalledWith(2, { action: 'COPY_TO_CLIPBOARD', dataUrl });
+    expect(button?.textContent).toBe('Copied');
+
+    fetchSpy.mockRestore();
+    if (OriginalClipboardItem === undefined) {
+      delete (globalThis as unknown as { ClipboardItem?: unknown }).ClipboardItem;
+    } else {
+      (globalThis as unknown as { ClipboardItem: unknown }).ClipboardItem = OriginalClipboardItem;
+    }
   });
 });

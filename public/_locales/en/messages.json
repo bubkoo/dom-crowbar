@@ -17,5 +17,15 @@
   "overlayHelpExpandAll": { "message": "Expand all" },
   "overlayHelpShrinkAll": { "message": "Shrink all" },
   "overlayHelpConfirmCapture": { "message": "Capture" },
-  "overlayHelpCancel": { "message": "Cancel" }
+  "overlayHelpCancel": { "message": "Cancel" },
+
+  "screenshotToastCaptured": { "message": "Screenshot captured!" },
+  "screenshotToastCopyAndDownloadFailed": { "message": "Screenshot captured, but copy and download both failed." },
+  "screenshotStatusCopiedAndDownloaded": { "message": "Downloaded and Copied" },
+  "screenshotStatusCopied": { "message": "Copied" },
+  "screenshotStatusDownloaded": { "message": "Downloaded" },
+  "screenshotCopyButtonCopy": { "message": "Copy" },
+  "screenshotCopyButtonCopying": { "message": "Copying..." },
+  "screenshotCopyButtonCopied": { "message": "Copied" },
+  "screenshotCopyButtonRetry": { "message": "Retry" }
 }

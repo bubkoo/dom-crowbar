@@ -12,14 +12,23 @@
  */
 
 import { loggers } from '@shared/logger';
+import { t } from '@shared/i18n';
 
 const log = loggers.overlay;
+
+type OperationResult = {
+  success: boolean;
+  error?: string;
+};
+
+const defaultToastDurationMs = 3000;
+const manualCopyToastDurationMs = 6000;
 
 class ScreenshotResult {
   /**
    * Handle successful screenshot capture
    *
-   * Performs three actions in parallel:
+    * Performs three actions in sequence:
    * 1. Copy image to clipboard
    * 2. Download image to disk
    * 3. Show success toast
@@ -29,20 +38,31 @@ class ScreenshotResult {
 
     const filename = this.generateFilename();
 
-    // Run clipboard and download in parallel for faster user experience
-    const [copied, downloaded] = await Promise.all([
-      this.copyToClipboard(dataUrl),
-      this.download(dataUrl, filename),
-    ]);
+    // Copy first to reduce focus-related clipboard failures caused by download side-effects.
+    const copyResult = await this.copyToClipboard(dataUrl);
+    const downloadResult = await this.download(dataUrl, filename);
+
+    const copied = copyResult.success;
+    const downloaded = downloadResult.success;
 
     if (copied || downloaded) {
-      this.showSuccessToast(width, height, copied, downloaded);
-      log.info('screenshot processed', { copied, downloaded });
+      this.showSuccessToast(width, height, copied, downloaded, dataUrl, copyResult.error);
+      log.info('screenshot processed', {
+        copied,
+        downloaded,
+        copyError: copyResult.error,
+        downloadError: downloadResult.error,
+      });
       return;
     }
 
-    this.showErrorToast('Screenshot captured, but copy and download both failed.');
-    log.warn('screenshot processing failed', { copied, downloaded });
+    this.showErrorToast(t('screenshotToastCopyAndDownloadFailed'));
+    log.warn('screenshot processing failed', {
+      copied,
+      downloaded,
+      copyError: copyResult.error,
+      downloadError: downloadResult.error,
+    });
   }
 
   /**
@@ -66,22 +86,90 @@ class ScreenshotResult {
   /**
    * Show success toast notification
    */
-  private showSuccessToast(width: number, height: number, copied: boolean, downloaded: boolean): void {
+  private showSuccessToast(
+    width: number,
+    height: number,
+    copied: boolean,
+    downloaded: boolean,
+    dataUrl: string,
+    copyError?: string
+  ): void {
     const roundedWidth = Math.round(width);
     const roundedHeight = Math.round(height);
 
-    let statusText = 'Copied + Downloaded';
-    if (copied && !downloaded) statusText = 'Copied only';
-    if (!copied && downloaded) statusText = 'Downloaded only';
+    let statusText = t('screenshotStatusCopiedAndDownloaded');
+    if (copied && !downloaded) statusText = t('screenshotStatusCopied');
+    if (!copied && downloaded) {
+      statusText = t('screenshotStatusDownloaded');
+    }
+
+    const showManualCopyButton = !copied;
+
+    if (showManualCopyButton && copyError) {
+      log.warn('auto copy failed, showing manual copy button', {
+        error: copyError,
+        summarized: this.summarizeError(copyError),
+      });
+    }
 
     this.showToast('success', `
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0;">
         <path d="M20 6L9 17l-5-5"/>
       </svg>
-      <span style="flex: 1;">Screenshot captured!</span>
-      <span style="opacity: 0.85; font-size: 11px;">${statusText}</span>
+      <span style="flex: 1;">${this.escapeHtml(t('screenshotToastCaptured'))}</span>
+      <span style="opacity: 0.85; font-size: 11px;">${this.escapeHtml(statusText)}</span>
       <span style="opacity: 0.7; font-size: 11px;">${roundedWidth} × ${roundedHeight}</span>
-    `);
+      ${showManualCopyButton
+        ? `<button id="dom-crowbar-copy-btn" style="margin-left: 6px; width: 68px; box-sizing: border-box; text-align: center; white-space: nowrap; border: 1px solid rgba(255,255,255,0.35); background: rgba(255,255,255,0.15); color: #fff; border-radius: 6px; padding: 4px 8px; font-size: 11px; cursor: pointer;">${this.escapeHtml(t('screenshotCopyButtonCopy'))}</button>`
+        : ''}
+    `, {
+      durationMs: showManualCopyButton ? manualCopyToastDurationMs : defaultToastDurationMs,
+      onMount: showManualCopyButton
+        ? (toast) => {
+          const button = toast.querySelector('#dom-crowbar-copy-btn') as HTMLButtonElement | null;
+          if (!button) return;
+
+          button.addEventListener('click', async () => {
+            button.disabled = true;
+            button.textContent = t('screenshotCopyButtonCopying');
+
+            try {
+              await this.manualCopyFromUserGesture(dataUrl);
+              button.textContent = t('screenshotCopyButtonCopied');
+              log.info('manual copy succeeded');
+            } catch (error) {
+              button.textContent = t('screenshotCopyButtonRetry');
+              button.disabled = false;
+              log.warn('manual copy failed', {
+                error: error instanceof Error ? error.message : String(error),
+              });
+            }
+          });
+        }
+        : undefined,
+    });
+  }
+
+  /**
+   * Keep status line compact while preserving useful diagnostics.
+   */
+  private summarizeError(message: string): string {
+    const trimmed = message.trim();
+
+    if (/document is not focused/i.test(trimmed)) {
+      return 'document not focused';
+    }
+
+    if (/notallowederror|write permission denied|permission denied/i.test(trimmed)) {
+      return 'permission denied';
+    }
+
+    if (/clipboard/i.test(trimmed) && /failed to execute|write/i.test(trimmed)) {
+      return 'clipboard write blocked';
+    }
+
+    if (trimmed.length <= 48) return trimmed;
+    return `${trimmed.slice(0, 48)}...`;
   }
 
   /**
@@ -104,7 +192,14 @@ class ScreenshotResult {
    * Uses fixed positioning with maximum z-index to appear above all page content.
    * Toast auto-dismisses after 3 seconds with a fade-out animation.
    */
-  private showToast(type: 'success' | 'error', content: string): void {
+  private showToast(
+    type: 'success' | 'error',
+    content: string,
+    options?: {
+      durationMs?: number;
+      onMount?: (toast: HTMLDivElement) => void;
+    }
+  ): void {
     // Remove existing toast to prevent stacking
     const existing = document.getElementById('dom-crowbar-toast');
     if (existing) existing.remove();
@@ -169,11 +264,14 @@ class ScreenshotResult {
     toast.innerHTML = content;
     document.body.appendChild(toast);
 
-    // Auto remove after 3 seconds with fade-out animation
+    options?.onMount?.(toast);
+
+    // Auto remove after a short delay with fade-out animation
+    const durationMs = options?.durationMs ?? defaultToastDurationMs;
     setTimeout(() => {
       toast.style.animation = 'dom-crowbar-toast-out 0.25s ease-in forwards';
       setTimeout(() => toast.remove(), 250);
-    }, 3000);
+    }, durationMs);
   }
 
   /**
@@ -191,27 +289,64 @@ class ScreenshotResult {
    * The background script forwards this to the offscreen document,
    * which has access to the Clipboard API.
    */
-  private async copyToClipboard(dataUrl: string): Promise<boolean> {
+  private async copyToClipboard(dataUrl: string): Promise<OperationResult> {
     try {
-      const response = await chrome.runtime.sendMessage({
-        action: 'COPY_TO_CLIPBOARD',
-        dataUrl,
-      });
-
-      if (!response || typeof response !== 'object' || !('success' in response) || response.success !== true) {
-        const errorMessage =
-          response && typeof response === 'object' && 'error' in response && typeof response.error === 'string'
-            ? response.error
-            : 'Copy failed';
-        throw new Error(errorMessage);
-      }
+      await this.requestCopy(dataUrl);
 
       log.debug('copied to clipboard');
-      return true;
+      return { success: true };
     } catch (error) {
-      log.error('copy failed', error);
-      return false;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      log.error('copy failed', { error: errorMessage });
+      return { success: false, error: errorMessage };
     }
+  }
+
+  private async requestCopy(dataUrl: string): Promise<void> {
+    const response = await chrome.runtime.sendMessage({
+      action: 'COPY_TO_CLIPBOARD',
+      dataUrl,
+    });
+
+    if (!response || typeof response !== 'object' || !('success' in response) || response.success !== true) {
+      const errorMessage =
+        response && typeof response === 'object' && 'error' in response && typeof response.error === 'string'
+          ? response.error
+          : 'Copy failed';
+      throw new Error(errorMessage);
+    }
+  }
+
+  /**
+   * Manual copy path triggered from toast button click (user gesture).
+   * Prefer direct clipboard write in page context, then fallback to background route.
+   */
+  private async manualCopyFromUserGesture(dataUrl: string): Promise<void> {
+    try {
+      await this.tryDirectClipboardWrite(dataUrl);
+      return;
+    } catch (error) {
+      log.warn('direct manual copy failed, falling back to background copy', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    await this.requestCopy(dataUrl);
+  }
+
+  private async tryDirectClipboardWrite(dataUrl: string): Promise<void> {
+    if (typeof ClipboardItem === 'undefined' || !navigator.clipboard?.write) {
+      throw new Error('Direct clipboard write is not available');
+    }
+
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        [blob.type]: blob,
+      }),
+    ]);
   }
 
   /**
@@ -229,7 +364,7 @@ class ScreenshotResult {
     * - The anchor path can fail on certain pages/policies, so background download remains
     *   a compatibility fallback to keep the save operation resilient.
    */
-  private async download(dataUrl: string, filename: string): Promise<boolean> {
+  private async download(dataUrl: string, filename: string): Promise<OperationResult> {
     try {
       const link = document.createElement('a');
       link.href = dataUrl;
@@ -239,7 +374,7 @@ class ScreenshotResult {
       document.body.appendChild(link);
       link.click();
       link.remove();
-      return true;
+      return { success: true };
     } catch (error) {
       log.warn('anchor download failed, trying background', { error });
     }
@@ -258,10 +393,11 @@ class ScreenshotResult {
         throw new Error(errorMessage);
       }
       log.debug('downloaded', { filename });
-      return true;
+      return { success: true };
     } catch (error) {
-      log.error('download failed', error);
-      return false;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      log.error('download failed', { error: errorMessage });
+      return { success: false, error: errorMessage };
     }
   }
 }

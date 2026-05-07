@@ -15,6 +15,15 @@ const fallbackMessages: Record<string, string> = {
     overlayHelpShrinkAll: 'Shrink all',
     overlayHelpConfirmCapture: 'Confirm capture',
     overlayHelpCancel: 'Cancel',
+    screenshotToastCaptured: 'Screenshot captured!',
+    screenshotToastCopyAndDownloadFailed: 'Screenshot captured, but copy and download both failed.',
+    screenshotStatusCopiedAndDownloaded: 'Copied + Downloaded',
+    screenshotStatusCopied: 'Copied',
+    screenshotStatusDownloaded: 'Downloaded',
+    screenshotCopyButtonCopy: 'Copy',
+    screenshotCopyButtonCopying: 'Copying...',
+    screenshotCopyButtonCopied: 'Copied',
+    screenshotCopyButtonRetry: 'Retry',
 };
 
 export function t(messageName: string): string {

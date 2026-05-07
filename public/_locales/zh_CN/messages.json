@@ -4,8 +4,8 @@
   "actionTitle": { "message": "DOM Crowbar" },
 
   "overlayHelpTitle": { "message": "快捷键" },
-  "overlayHelpHint": { "message": "按住 ? 可查看此面板" },
-  "overlayHelpGroupNavigate": { "message": "元素导航" },
+  "overlayHelpHint": { "message": "按住 ? 可查看快捷键面板" },
+  "overlayHelpGroupNavigate": { "message": "元素调整" },
   "overlayHelpGroupAdjust": { "message": "边界调整" },
   "overlayHelpGroupAction": { "message": "截图操作" },
   "overlayHelpSelectParent": { "message": "选择父元素" },
@@ -17,5 +17,15 @@
   "overlayHelpExpandAll": { "message": "四向扩展" },
   "overlayHelpShrinkAll": { "message": "四向收缩" },
   "overlayHelpConfirmCapture": { "message": "确认截图" },
-  "overlayHelpCancel": { "message": "取消" }
+  "overlayHelpCancel": { "message": "取消" },
+
+  "screenshotToastCaptured": { "message": "截图成功！" },
+  "screenshotToastCopyAndDownloadFailed": { "message": "截图成功，但复制和下载都失败了。" },
+  "screenshotStatusCopiedAndDownloaded": { "message": "已下载并复制到了剪切板" },
+  "screenshotStatusCopied": { "message": "已复制" },
+  "screenshotStatusDownloaded": { "message": "已下载" },
+  "screenshotCopyButtonCopy": { "message": "复制" },
+  "screenshotCopyButtonCopying": { "message": "复制中..." },
+  "screenshotCopyButtonCopied": { "message": "已复制" },
+  "screenshotCopyButtonRetry": { "message": "重试" }
 }
