@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.2](https://github.com/bubkoo/dom-crowbar/compare/v1.1.1...v1.1.2) (2026-05-07)
+
+
+### Bug Fixes
+
+* fix copy ([e4144bf](https://github.com/bubkoo/dom-crowbar/commit/e4144bf2b40520c169d0dead5602917b40bdb2bd))
+
 ## [1.1.1](https://github.com/bubkoo/dom-crowbar/compare/v1.1.0...v1.1.1) (2026-05-07)
 
 

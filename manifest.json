@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "default_locale": "en",
   "name": "__MSG_extensionName__",
-  "version": "1.0.0",
+  "version": "1.1.2",
   "description": "__MSG_extensionDescription__",
   "icons": {
     "16": "assets/icon-16.png",
@@ -23,8 +23,13 @@
   },
   "content_scripts": [
     {
-      "matches": ["http://*/*", "https://*/*"],
-      "js": ["src/content/content.ts"],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "src/content/content.ts"
+      ],
       "run_at": "document_start"
     }
   ],
@@ -35,5 +40,7 @@
     "downloads",
     "clipboardWrite"
   ],
-  "host_permissions": ["<all_urls>"]
+  "host_permissions": [
+    "<all_urls>"
+  ]
 }
