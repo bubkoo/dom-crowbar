@@ -226,4 +226,4 @@ Workflow files:
 
 ## License
 
-MIT
+[MIT](./LICENSE)
