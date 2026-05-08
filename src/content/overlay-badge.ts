@@ -41,7 +41,7 @@ export function buildBadgeText(params: BadgeTextParams): string {
 
     const expandText = expandParts.length > 0 ? ` ${expandParts.join(' ')}` : '';
 
-    return `${params.selector}  ${sizeText}${depthText}${expandText}  (↵)`;
+    return `${params.selector}  ${sizeText}${depthText}${expandText} ㅤ〔↵〕 〔?〕`;
 }
 
 export function calculateBadgePosition(params: BadgePositionParams): BadgePosition {
