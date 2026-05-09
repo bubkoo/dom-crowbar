@@ -17,7 +17,8 @@ describe('buildBadgeText', () => {
 
         expect(text).toContain('#target');
         expect(text).toContain('100 × 50');
-        expect(text).toContain('(↵)');
+        expect(text).toContain('〔↵〕');
+        expect(text).toContain('〔?〕');
     });
 
     it('includes depth and expansion arrows when present', () => {
