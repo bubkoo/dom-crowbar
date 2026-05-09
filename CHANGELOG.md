@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0](https://github.com/bubkoo/dom-crowbar/compare/v1.1.2...v1.2.0) (2026-05-09)
+
+
+### Features
+
+* add tips for help ([1e4b1e1](https://github.com/bubkoo/dom-crowbar/commit/1e4b1e128c0cbb1353f0d5845078172062f2ae81))
+
+
+### Bug Fixes
+
+* fix failed test ([e78860c](https://github.com/bubkoo/dom-crowbar/commit/e78860c7655c9ab13bfc058f5e05c3f687996e37))
+
 ## [1.1.2](https://github.com/bubkoo/dom-crowbar/compare/v1.1.1...v1.1.2) (2026-05-07)
 
 
